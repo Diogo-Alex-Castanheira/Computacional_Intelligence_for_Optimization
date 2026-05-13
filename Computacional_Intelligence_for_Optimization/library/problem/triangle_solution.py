@@ -84,6 +84,7 @@ class TriangleSolution(Solution):
         """
         W, H = self.img_width, self.img_height # weight and height of the target image
         canvas = np.zeros((H, W, 3), dtype=np.uint8) # start with a blank canvas
+        overlay = np.empty_like(canvas)              # allocated once; reused each iteration
 
         for i in range(self.n_triangles): # for each triangle, we extract the vertex coordinates, color, and alpha from the representation and draw it on the canvas
             base = i * genes_per_triangle # base index for the current triangle in the representation
@@ -102,7 +103,7 @@ class TriangleSolution(Solution):
             
             alpha = float(self.repr[base + 9]) # extract alpha as float
 
-            overlay = canvas.copy() # create a copy of the current canvas to draw the triangle on
+            np.copyto(overlay, canvas) # copy canvas into pre-allocated overlay buffer
             cv2.fillPoly(overlay, [pts], color) # draw the triangle on the overlay canvas with the specified color
             cv2.addWeighted(overlay, alpha, canvas, 1 - alpha, 0, dst=canvas) # blend the overlay back onto the canvas using the triangle's alpha
 
