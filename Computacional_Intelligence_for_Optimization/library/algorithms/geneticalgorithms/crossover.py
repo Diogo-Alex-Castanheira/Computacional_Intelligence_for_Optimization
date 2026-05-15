@@ -1,5 +1,4 @@
 import random
-from copy import deepcopy
 
 genes_per_triangle = 10
 
@@ -21,7 +20,7 @@ def one_point_crossover(parent1, parent2, xo_prob, verbose=False):
     if random.random() > xo_prob:
         if verbose:
             print("Replication (no crossover)")
-        return deepcopy(parent1), deepcopy(parent2)
+        return parent1.clone(), parent2.clone()
 
     block    = 10  # genes per triangle
     n_blocks = len(parent1.repr) // block # number of triangles
@@ -56,7 +55,7 @@ def two_point_crossover(parent1, parent2, xo_prob, verbose=False):
     if random.random() > xo_prob:
         if verbose:
             print("Replication (no crossover)")
-        return deepcopy(parent1), deepcopy(parent2)
+        return parent1.clone(), parent2.clone()
 
     block    = 10  # genes per triangle
     n_blocks = len(parent1.repr) // block # number of triangles
@@ -73,5 +72,42 @@ def two_point_crossover(parent1, parent2, xo_prob, verbose=False):
     if verbose:
         print(f"Two-point crossover at gene indices {p1} and {p2} "
               f"(triangles {b1} and {b2})")
+
+    return parent1.with_repr(g1), parent2.with_repr(g2)
+
+
+def arithmetic_crossover(parent1, parent2, xo_prob, verbose=False):
+    """
+    Arithmetic (whole-genome) crossover — an instance of geometric crossover
+    under the Euclidean metric.
+
+    With probability `xo_prob`, the offspring are convex combinations of the
+    parents' genomes:
+
+        offspring1 = α · parent1 + (1 - α) · parent2
+        offspring2 = (1 - α) · parent1 + α · parent2
+
+    A single α is drawn uniformly from [0, 1] per crossover event, yielding
+    two symmetric offspring on the line segment between the parents.
+
+    Because α ∈ [0, 1], offspring gene values stay within the convex hull of
+    the parents' values — every gene is automatically inside its valid range,
+    so no clamping is needed.
+
+    Falls back to plain replication when random() > xo_prob.
+    """
+    if random.random() > xo_prob:
+        if verbose:
+            print("Replication (no crossover)")
+        return parent1.clone(), parent2.clone()
+
+    a = random.random()
+    b = 1.0 - a
+
+    g1 = [a * x + b * y for x, y in zip(parent1.repr, parent2.repr)]
+    g2 = [b * x + a * y for x, y in zip(parent1.repr, parent2.repr)]
+
+    if verbose:
+        print(f"Arithmetic crossover with α = {a:.3f}")
 
     return parent1.with_repr(g1), parent2.with_repr(g2)
