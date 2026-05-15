@@ -36,29 +36,34 @@ class TriangleSolution(Solution):
         self.n_triangles = n_triangles
         super().__init__(repr=repr)
 
-    def random_initial_representation(self, vertex_jitter_frac=0.05): # fraction of image size for vertex jitter
-        H, W = self._target_array.shape[:2] # note: shape is (H, W, 3) so height is first
-        jitter_x = vertex_jitter_frac * W # fraction of image width for vertex jitter
-        jitter_y = vertex_jitter_frac * H # fraction of image height for vertex jitter
+    def random_initial_representation(self):
+        """
+        Initialise each triangle with three independent random vertices anywhere on the canvas.
+        Colour is sampled from the target image at the centroid of the three vertices,
+        and alpha is initialised uniformly in [0, 1]. This gives a natural mix of triangle
+        sizes (some small, some large) and much higher initial canvas coverage than a
+        center-and-jitter scheme.
+        """
+        H, W = self._target_array.shape[:2]
 
-        repr = []
-        for _ in range(self.n_triangles): # for each triangle, we generate a random center point and then jitter the vertices around it
-            cx = random.uniform(0, W) # random center x
-            cy = random.uniform(0, H) # random center y
+        genes = []
+        for _ in range(self.n_triangles):
+            # Three independent random vertices anywhere on the canvas.
+            x1, y1 = random.uniform(0, W), random.uniform(0, H)
+            x2, y2 = random.uniform(0, W), random.uniform(0, H)
+            x3, y3 = random.uniform(0, W), random.uniform(0, H)
+            genes += [x1, y1, x2, y2, x3, y3]
 
-            for _ in range(3): # for each of the 3 vertices, we jitter around the center point and clamp to image bounds
-                vx = min(W, max(0.0, cx + random.uniform(-jitter_x, jitter_x))) # jitter x around center and clamp to [0, W]
-                vy = min(H, max(0.0, cy + random.uniform(-jitter_y, jitter_y))) # jitter y around center and clamp to [0, H]
-                repr += [vx, vy] # add vertex coordinates to representation
+            # Sample colour at the centroid of the triangle.
+            cx, cy = (x1 + x2 + x3) / 3.0, (y1 + y2 + y3) / 3.0
+            px = min(W - 1, int(cx))
+            py = min(H - 1, int(cy))
+            r, g, b = self._target_array[py, px][:3]
+            genes += [float(r), float(g), float(b)]
 
-            px = min(W - 1, int(cx)) # pixel x for color sampling, clamped to [0, W-1]
-            py = min(H - 1, int(cy)) # pixel y for color sampling, clamped to [0, H-1]
-            r, g, b = self._target_array[py, px][:3] # sample color from target image at the center point (note: array indexing is [y, x])
-            repr += [float(r), float(g), float(b)] # add color to representation as floats for mutation
+            genes.append(random.random())  # alpha
 
-            repr.append(random.random())  # alpha is initialized randomly in [0, 1]
-
-        return repr
+        return genes
 
     def fitness(self):
         """
@@ -69,10 +74,39 @@ class TriangleSolution(Solution):
         """
         if self._fitness is not None:
             return self._fitness
-        rendered = self.render().astype(np.float32)
+        rendered = self._render_f32()               # stay in float32 — no quantisation error
         target = self._target_array.astype(np.float32)
         self._fitness = float(np.sqrt(np.mean((rendered - target) ** 2)))
         return self._fitness
+
+    def _render_f32(self):
+        """Render to a float32 canvas in [0, 255]. Used internally by fitness() and render()."""
+        W, H = self.img_width, self.img_height
+        canvas = np.zeros((H, W, 3), dtype=np.float32) # float32 avoids uint8 rounding error across 100 blends
+        overlay = np.empty_like(canvas)                 # allocated once; reused each iteration
+
+        for i in range(self.n_triangles):
+            base = i * genes_per_triangle
+
+            pts = np.array([
+                [int(self.repr[base + 0]), int(self.repr[base + 1])],
+                [int(self.repr[base + 2]), int(self.repr[base + 3])],
+                [int(self.repr[base + 4]), int(self.repr[base + 5])],
+            ], dtype=np.int32)
+
+            color = (
+                float(self.repr[base + 6]),
+                float(self.repr[base + 7]),
+                float(self.repr[base + 8]),
+            )
+
+            alpha = float(self.repr[base + 9])
+
+            np.copyto(overlay, canvas)
+            cv2.fillPoly(overlay, [pts], color)
+            cv2.addWeighted(overlay, alpha, canvas, 1 - alpha, 0, dst=canvas)
+
+        return canvas
 
     def render(self):
         """Render the genotype to an RGB uint8 array using OpenCV.
@@ -82,31 +116,7 @@ class TriangleSolution(Solution):
             canvas = alpha * overlay + (1 - alpha) * canvas
         which is exactly per-triangle alpha compositing.
         """
-        W, H = self.img_width, self.img_height # weight and height of the target image
-        canvas = np.zeros((H, W, 3), dtype=np.uint8) # start with a blank canvas
-
-        for i in range(self.n_triangles): # for each triangle, we extract the vertex coordinates, color, and alpha from the representation and draw it on the canvas
-            base = i * genes_per_triangle # base index for the current triangle in the representation
-
-            pts = np.array([
-                [int(self.repr[base + 0]), int(self.repr[base + 1])],
-                [int(self.repr[base + 2]), int(self.repr[base + 3])],
-                [int(self.repr[base + 4]), int(self.repr[base + 5])],
-            ], dtype=np.int32) # extract vertex coordinates and convert to int for OpenCV
-
-            color = (
-                int(self.repr[base + 6]),
-                int(self.repr[base + 7]),
-                int(self.repr[base + 8]),
-            ) # extract color and convert to int for OpenCV
-            
-            alpha = float(self.repr[base + 9]) # extract alpha as float
-
-            overlay = canvas.copy() # create a copy of the current canvas to draw the triangle on
-            cv2.fillPoly(overlay, [pts], color) # draw the triangle on the overlay canvas with the specified color
-            cv2.addWeighted(overlay, alpha, canvas, 1 - alpha, 0, dst=canvas) # blend the overlay back onto the canvas using the triangle's alpha
-
-        return canvas
+        return np.clip(self._render_f32(), 0, 255).astype(np.uint8) # quantise once, only for display
 
     def with_repr(self, new_repr):
         return TriangleSolution(
