@@ -1,6 +1,6 @@
 # Girl with a Pearl Earring — Genetic Algorithm
 
-A Genetic Algorithm that approximates Vermeer's *Girl with a Pearl Earring* using **100 semi-transparent triangles**. Built for the Computational Intelligence for Optimization (CIFO) course at NOVA IMS.
+A Genetic Algorithm that approximates Vermeer's *Girl with a Pearl Earring* using **100 semi-transparent triangles**. Built for the Computational Intelligence for Optimization.
 
 ## Result
 
@@ -20,8 +20,7 @@ with vertex coordinates in pixel space, RGB in `[0, 255]`, and alpha in `[0, 1]`
 
 ```
 .
-├── CIFO202526.pdf                                # Course assignment brief
-└── Computacional_Intelligence_for_Optimization/
+├── Computacional_Intelligence_for_Optimization/
     ├── girl_with_pearl.ipynb                     # Main notebook
     └── library/
         ├── algorithms/geneticalgorithms/
@@ -33,6 +32,7 @@ with vertex coordinates in pixel space, RGB in `[0, 255]`, and alpha in `[0, 1]`
             ├── triangle_solution.py              # Triangle-mosaic representation + rendering
             ├── fitness_sharing.py                # Goldberg-style fitness sharing
             └── data/girl_pearl_earing.png        # Target image
+    └── output
 ```
 
 ## Notebook structure
@@ -71,7 +71,6 @@ All runs use `random.seed(1)` for reproducibility.
 
 1. Install dependencies (see below).
 2. Open `Computacional_Intelligence_for_Optimization/girl_with_pearl.ipynb` and run the cells top-to-bottom.
-3. Make sure an `output/` directory exists next to the notebook — the plots and renders are saved there.
 
 ### Requirements
 
