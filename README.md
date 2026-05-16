@@ -4,7 +4,9 @@ A Genetic Algorithm that approximates Vermeer's *Girl with a Pearl Earring* usin
 
 ## Result
 
-The Final GA achieves an **RMSE of 25.31** against the target image after 1 000 generations (elitism off). With elitism on, the result is essentially identical (25.36) — confirming that elitism is neutral for this configuration.
+The Final GA achieves an **RMSE of 26.10** against the target image after 1 000 generations (elitism off). With elitism on, the result is 27.22 — close, but elitism off is consistently better at this generation budget.
+
+> Initialisation note: the genome is initialised with **fully random colours**. The target image is only consulted inside `fitness()`, never during initialisation or evolution.
 
 ## Problem
 
@@ -57,13 +59,13 @@ All runs use `random.seed(1)` for reproducibility.
 | Selection | Tournament (size 3) |
 | Crossover | Two-Point — `xo_prob = 0.9` |
 | Mutation | Gaussian — `mut_prob = 0.005` |
-| Elitism | Off (slightly better than on, though nearly tied) |
+| Elitism | Off (~1 RMSE better than on at 1 000 generations) |
 | Fitness | RMSE (minimisation) |
 
 ## Key findings
 
 - **`mut_prob` is the single most impactful hyperparameter.** The original default of `0.1` mutates ~100 of the 1 000 genes per offspring, overwhelming selection. Lowering it to `0.005` (~5 genes per offspring) lets good triangles propagate across generations and was the largest single improvement.
-- **Two-point crossover beat one-point.** Both preserve complete triangles, but two cuts allow more useful recombinations and were consistently best at low mutation rates.
+- **Two-point crossover was chosen over one-point.** Both preserve complete triangles. Multi-seed experiments showed two-point is more robust; on this single seed the two are within noise of each other, but two-point is the validated choice.
 - **Gaussian mutation dominated uniform mutation** by a wide margin — small perturbations let selection accumulate improvements, while uniform mutation effectively randomises good triangles.
 - **Ablation studies can hide operator interactions.** Earlier multi-seed exploration on a separate branch showed that the "best" operator depends on the others (e.g. arithmetic crossover wins at high `mut_prob` but loses at low `mut_prob`). The chosen configuration was validated across multiple seeds before being pinned to `seed = 1` in this clean version.
 

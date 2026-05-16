@@ -38,13 +38,13 @@ class TriangleSolution(Solution):
 
     def random_initial_representation(self):
         """
-        Initialise each triangle with three independent random vertices anywhere on the canvas.
-        Colour is sampled from the target image at the centroid of the three vertices,
-        and alpha is initialised uniformly in [0, 1]. This gives a natural mix of triangle
-        sizes (some small, some large) and much higher initial canvas coverage than a
-        center-and-jitter scheme.
+        Initialise each triangle with three independent random vertices anywhere on the canvas,
+        a fully random RGB colour, and a uniform random alpha in [0, 1].
+
+        The target image is *not* consulted here — its pixel values are reserved exclusively
+        for the fitness evaluation. Only the canvas dimensions (img_width, img_height) are used.
         """
-        H, W = self._target_array.shape[:2]
+        W, H = self.img_width, self.img_height
 
         genes = []
         for _ in range(self.n_triangles):
@@ -54,12 +54,8 @@ class TriangleSolution(Solution):
             x3, y3 = random.uniform(0, W), random.uniform(0, H)
             genes += [x1, y1, x2, y2, x3, y3]
 
-            # Sample colour at the centroid of the triangle.
-            cx, cy = (x1 + x2 + x3) / 3.0, (y1 + y2 + y3) / 3.0
-            px = min(W - 1, int(cx))
-            py = min(H - 1, int(cy))
-            r, g, b = self._target_array[py, px][:3]
-            genes += [float(r), float(g), float(b)]
+            # Fully random RGB colour — no peek at the target image.
+            genes += [random.uniform(0, 255), random.uniform(0, 255), random.uniform(0, 255)]
 
             genes.append(random.random())  # alpha
 
